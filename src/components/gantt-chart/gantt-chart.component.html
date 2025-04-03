@@ -1,240 +1,276 @@
 <div class="gantt-container">
-    <div class="gantt-header">
-      <h2>Project Gantt Chart</h2>
-      
-      <div class="view-controls">
-        <div class="view-navigation">
-          <button class="btn nav-btn" (click)="navigateDate(-1)">
-            <i class="bi bi-chevron-left"></i>
-          </button>
-          <span class="current-range">{{ formatDateRange() }}</span>
-          <button class="btn nav-btn" (click)="navigateDate(1)">
-            <i class="bi bi-chevron-right"></i>
-          </button>
-          <button class="btn current-btn" (click)="goToCurrent()">Today</button>
-        </div>
-        
-        <div class="view-selector">
-          <button class="btn" [class.active]="viewMode === 'Day'" (click)="changeViewMode('Day')">Day</button>
-          <button class="btn" [class.active]="viewMode === 'Month'" (click)="changeViewMode('Month')">Month</button>
-          <button class="btn" [class.active]="viewMode === 'Year'" (click)="changeViewMode('Year')">Year</button>
-        </div>
+  <div class="gantt-header">
+    <h2>Project Gantt Chart</h2>
+
+    <div class="view-controls">
+      <div class="view-navigation">
+        <button class="btn nav-btn" (click)="navigateDate(-14)">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="#FF5733" viewBox="0 0 24 24">
+            <path d="M6 9l6 6 6-6" stroke="#FF5733" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </button>
+        <span class="current-range">{{ formatDateRange() }}</span>
+        <button class="btn nav-btn" (click)="navigateDate(14)">
+          <!-- FF5733 -->
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="#32CD32" viewBox="0 0 24 24">
+            <path d="M18 15l-6-6-6 6" stroke="#32CD32" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round" />
+          </svg>
+
+        </button>
+        <button class="btn current-btn" (click)="goToCurrent()">Today</button>
       </div>
+
+      <div class="view-selector">
+        <button class="btn" [class.active]="viewMode === 'Day'" (click)="changeViewMode('Day')">Day</button>
+        <button class="btn" [class.active]="viewMode === 'Month'" (click)="changeViewMode('Month')">Month</button>
+        <button class="btn" [class.active]="viewMode === 'Year'" (click)="changeViewMode('Year')">Year</button>
+      </div>
+      <label>
+        <input type="checkbox" name="weekend" [(ngModel)]="includeWeekends" (change)="updateTimeline()"
+          class="custom-checkbox" />
+        <small> Include Weekends</small>
+      </label>
     </div>
-    
-    <!-- Task Form -->
-    <div class="task-form-container">
-      <h3>Add New Task</h3>
-      <form (ngSubmit)="addTask()" class="task-form">
-        <div class="form-row">
-          <div class="form-group">
-            <label>Task Name</label>
-            <input type="text" [(ngModel)]="newTask.name" name="name" required class="form-control" />
-          </div>
-          
-          <div class="form-group">
-            <label>Assigned To</label>
-            <input type="text" [(ngModel)]="newTask.assignedTo" name="assignedTo" required class="form-control" />
-          </div>
-          
-          <div class="form-group">
-            <label>Task Type</label>
-            <select [(ngModel)]="newTask.type" name="type" class="form-select">
-              <option value="To-Do">To-Do</option>
-              <option value="Buffer">Buffer</option>
-              <option value="Duration">Duration</option>
-            </select>
-          </div>
+  </div>
+
+  <!-- Task Form -->
+  <div class="task-form-container">
+    <h3>Add New Task</h3>
+    <form (ngSubmit)="addTask()" class="task-form">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Task Name</label>
+          <input type="text" [(ngModel)]="newTask.name" name="name" required class="form-control" />
         </div>
-        
-        <div class="form-row">
-          <div class="form-group">
-            <label>Start Date</label>
-            <input type="date" [(ngModel)]="newTask.startDate" name="startDate" required class="form-control" />
-          </div>
-          
-          <div class="form-group">
-            <label>End Date</label>
-            <input type="date" [(ngModel)]="newTask.endDate" name="endDate" required class="form-control" />
-          </div>
-          
-          <div class="form-group" *ngIf="newTask.type === 'Buffer'">
-            <label>Buffer (days)</label>
-            <input type="number" [(ngModel)]="newTask.buffer" name="buffer" class="form-control" min="0" />
-          </div>
-          
-          <div class="form-actions">
-            <button type="button" class="btn secondary-btn" (click)="setDefaultDates()">Set Today</button>
-            <button type="submit" class="btn primary-btn">Add Task</button>
-          </div>
+
+        <div class="form-group">
+          <label>Assigned To</label>
+          <input type="text" [(ngModel)]="newTask.assignedTo" name="assignedTo" required class="form-control" />
         </div>
-      </form>
-    </div>
-    
-    <!-- Gantt Chart Timeline -->
-    <div class="timeline-container">
-      <!-- Day View -->
-      <div class="gantt-view" *ngIf="viewMode === 'Day'">
-        <div class="timeline-header">
-          <div class="task-info-header">
-            <div class="task-name-header">Task Name</div>
-            <div class="task-assigned-header">Assigned To</div>
-          </div>
-          
-          <div class="timeline-dates">
-            <div *ngFor="let label of getTimelineLabels()" 
-                 class="day-column" 
-                 [ngClass]="{'today': isToday(label), 'weekend': isWeekend(label)}">
-              <div class="day-name">{{ getDayName(label) }}</div>
-              <div class="day-date">{{ formatDayDate(label) }}</div>
-            </div>
-          </div>
+
+        <div class="form-group">
+          <label>Task Type</label>
+          <select [(ngModel)]="newTask.type" name="type" class="form-select">
+            <option value="To-Do">To-Do</option>
+            <option value="Buffer">Buffer</option>
+            <option value="Duration">Duration</option>
+          </select>
         </div>
-        
-        <div class="timeline-content">
-          <div class="task-list">
-            <div *ngFor="let task of filterTasksByView()" class="task-row">
-              <div class="task-info">
-                <div class="task-name">{{ task.name }}</div>
-                <div class="task-assigned">{{ task.assignedTo }}</div>
-              </div>
-              
-              <div class="task-timeline">
-                <div class="task-bar"
-                     [ngStyle]="{
-                       'left': getTaskPosition(task).left + 'px',
-                       'width': getTaskPosition(task).width + 'px',
-                       'background-color': getColor(task.type),
-                       'color': getTextColor(task.type)
-                     }"
-                     [ngClass]="{'buffer-task': task.type === 'Buffer'}"
-                     [title]="task.name + ' (' + formatTaskDateRange(task) + ')'"
-                >
-                  <span class="task-bar-label">{{ task.name }}</span>
-                </div>
-              </div>
-            </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Start Date</label>
+          <input type="date" [(ngModel)]="newTask.startDate" name="startDate" required class="form-control" />
+        </div>
+
+        <div class="form-group">
+          <label>End Date</label>
+          <input type="date" [(ngModel)]="newTask.endDate" name="endDate" required class="form-control" />
+        </div>
+
+        <div class="form-group" *ngIf="newTask.type === 'Buffer'">
+          <label>Buffer (days)</label>
+          <input type="number" [(ngModel)]="newTask.buffer" name="buffer" class="form-control" min="0" />
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn secondary-btn" (click)="setDefaultDates()">Set Today</button>
+          <button type="submit" class="btn primary-btn">Add Task</button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- Gantt Chart Timeline -->
+  <div class="timeline-container">
+    <!-- Day View -->
+    <div class="gantt-view" *ngIf="viewMode === 'Day'">
+      <div class="timeline-header">
+        <div class="task-info-header">
+          <div class="task-name-header">Task Name</div>
+          <div class="task-assigned-header">Assigned To</div>
+        </div>
+
+        <div class="timeline-dates">
+          <div *ngFor="let label of getTimelineLabelsForDays()" class="day-column timeline-cell"
+            [class.saturday-separator]="(label.isSaturday && viewMode === 'Day') || isFridayWithoutWeekends(label.date)"
+            [ngClass]="{'today': isToday(label.date), 'weekend': isWeekend(label.date)}"
+            [ngClass]="{'weekend':isWeekend(label.date)}"
+            >
             
-            <!-- Empty state -->
-            <div *ngIf="filterTasksByView().length === 0" class="empty-state">
-              No tasks in the current time period
-            </div>
+            <div class="day-name">{{ getDayName(label.date) }}</div>
+            <div class="day-date">{{ formatDayDate(label.date) }}</div>
           </div>
         </div>
       </div>
-      
-      <!-- Month View -->
-      <div class="gantt-view" *ngIf="viewMode === 'Month'">
-        <div class="timeline-header">
-          <div class="task-info-header">
-            <div class="task-name-header">Task Name</div>
-            <div class="task-assigned-header">Assigned To</div>
-          </div>
-          
-          <div class="timeline-dates">
-            <div *ngFor="let label of getTimelineLabels()" 
-                 class="month-column"
-                 [ngClass]="{'current-month': isCurrentMonth(label)}">
-              <div class="month-name">{{ formatMonthDate(label) }}</div>
+
+      <div class="timeline-content">
+        <div class="task-list">
+          <div *ngFor="let task of filterTasksByView()" class="task-row">
+            <div class="task-info">
+              <div class="task-name">{{ task.name }}</div>
+              <div class="task-assigned">{{ task.assignedTo }}</div>
             </div>
-          </div>
-        </div>
-        
-        <div class="timeline-content">
-          <div class="task-list">
-            <div *ngFor="let task of filterTasksByView()" class="task-row">
-              <div class="task-info">
-                <div class="task-name">{{ task.name }}</div>
-                <div class="task-assigned">{{ task.assignedTo }}</div>
-              </div>
-              
-              <div class="task-timeline">
-                <div class="task-bar"
-                     [ngStyle]="{
-                       'left': getTaskPosition(task).left + 'px',
-                       'width': getTaskPosition(task).width + 'px',
+
+            <div class="task-timeline" [ngStyle]="{
+        'background-image': getTimelineGridLines(),
+                'background-size': dayWidth + 'px',
+                'position': 'relative'
+     }">
+              <div class="task-bar"
+               [ngStyle]="{
+                       'left': getTaskPositionForDays(task).left + 'px',
+                       'width': getTaskPositionForDays(task).width + 'px',
                        'background-color': getColor(task.type),
                        'color': getTextColor(task.type)
-                     }"
-                     [ngClass]="{'buffer-task': task.type === 'Buffer'}"
-                     [title]="task.name + ' (' + formatTaskDateRange(task) + ')'"
-                >
-                  <span class="task-bar-label">{{ task.name }}</span>
-                </div>
+                     }" [ngClass]="{
+           'buffer-task': task.type === 'Buffer',
+           'd-none': getTaskPositionForDays(task).hidden,
+           'weekend-highlight': isWeekend(task.startDate),
+           'last-column-border': isLastColumn(task)
+         }"
+                [title]="task.name + ' (' + formatTaskDateRange(task) + ')'">
+                <span class="task-bar-label">{{ task.name }}</span>
               </div>
             </div>
-            
-            <!-- Empty state -->
-            <div *ngIf="filterTasksByView().length === 0" class="empty-state">
-              No tasks in the current time period
-            </div>
           </div>
-        </div>
-      </div>
-      
-      <!-- Year View -->
-      <div class="gantt-view" *ngIf="viewMode === 'Year'">
-        <div class="timeline-header">
-          <div class="task-info-header">
-            <div class="task-name-header">Task Name</div>
-            <div class="task-assigned-header">Assigned To</div>
-          </div>
-          
-          <div class="timeline-dates">
-            <div *ngFor="let label of getTimelineLabels()" 
-                 class="year-column"
-                 [ngClass]="{'current-year': isCurrentYear(label)}">
-              <div class="year-name">{{ label }}</div>
-            </div>
-          </div>
-        </div>
-        
-        <div class="timeline-content">
-          <div class="task-list">
-            <div *ngFor="let task of filterTasksByView()" class="task-row">
-              <div class="task-info">
-                <div class="task-name">{{ task.name }}</div>
-                <div class="task-assigned">{{ task.assignedTo }}</div>
-              </div>
-              
-              <div class="task-timeline">
-                <div class="task-bar"
-                     [ngStyle]="{
-                       'left': getTaskPosition(task).left + 'px',
-                       'width': getTaskPosition(task).width + 'px',
-                       'background-color': getColor(task.type),
-                       'color': getTextColor(task.type)
-                     }"
-                     [ngClass]="{'buffer-task': task.type === 'Buffer'}"
-                     [title]="task.name + ' (' + formatTaskDateRange(task) + ')'"
-                >
-                  <span class="task-bar-label">{{ task.name }}</span>
-                </div>
-              </div>
-            </div>
-            
-            <!-- Empty state -->
-            <div *ngIf="filterTasksByView().length === 0" class="empty-state">
-              No tasks in the current time period
-            </div>
+
+          <!-- Empty state -->
+          <div *ngIf="filterTasksByView().length === 0" class="empty-state">
+            No tasks in the current time period
           </div>
         </div>
       </div>
     </div>
-    
-    <!-- Color Legend -->
-    <div class="color-legend">
-      <div class="legend-item">
-        <div class="legend-color" style="background-color: #8a2be2;"></div>
-        <div class="legend-label">To-Do</div>
+
+    <!-- Month View -->
+    <div class="gantt-view" *ngIf="viewMode === 'Month'">
+      <div class="timeline-header">
+        <div class="task-info-header">
+          <div class="task-name-header">Task Name</div>
+          <div class="task-assigned-header">Assigned To</div>
+        </div>
+
+        <div class="timeline-dates">
+          <div *ngFor="let label of getTimelineLabelsForMonths()" class="month-column"
+            [ngClass]="{'current-month': isCurrentMonth(label.date)}">
+            <div class="month-name">{{ formatMonthDate(label.date) }}</div>
+          </div>
+        </div>
       </div>
-      <div class="legend-item">
-        <div class="legend-color" style="background-color: #ffcc00;"></div>
-        <div class="legend-label">Buffer</div>
+
+      <div class="timeline-content">
+        <div class="task-list">
+          <div *ngFor="let task of filterTasksByView()" class="task-row">
+            <div class="task-info">
+              <div class="task-name">{{ task.name }}</div>
+              <div class="task-assigned">{{ task.assignedTo }}</div>
+            </div>
+
+            <div class="task-timeline">
+              <!-- Vertical Grid Lines for Month View -->
+              <div *ngFor="let label of getTimelineLabelsForMonths()" 
+                   class="month-grid-line"
+                   [ngStyle]="{'left': getMonthLinePosition(label) + 'px'}">
+              </div>
+            
+              <!-- Task Bar for Month View -->
+              <div class="task-bar" [ngStyle]="{
+                           'left': getTaskPositionForMonth(task).left + 'px',
+                           'width': getTaskPositionForMonth(task).width + 'px',
+                           'background-color': getColor(task.type),
+                           'color': getTextColor(task.type)
+                         }" 
+                   [ngClass]="{'buffer-task': task.type === 'Buffer'}"
+                   [title]="task.name + ' (' + formatTaskDateRange(task) + ')'">
+                <span class="task-bar-label">{{ task.name }}</span>
+              </div>
+            </div>
+            
+          </div>
+
+          <!-- Empty state -->
+          <div *ngIf="filterTasksByView().length === 0" class="empty-state">
+            No tasks in the current time period
+          </div>
+        </div>
       </div>
-      <div class="legend-item">
-        <div class="legend-color" style="background-color: #32cd32;"></div>
-        <div class="legend-label">Duration</div>
+    </div>
+
+    <!-- Year View -->
+    <div class="gantt-view" *ngIf="viewMode === 'Year'">
+      <div class="timeline-header">
+        <div class="task-info-header">
+          <div class="task-name-header">Task Name</div>
+          <div class="task-assigned-header">Assigned To</div>
+        </div>
+
+        <div class="timeline-dates ">
+          <div *ngFor="let label of getTimelineLabelsForYears()" class="year-column"
+            [ngClass]="{'current-year': isCurrentYear(label.date)}">
+            <div class="year-name">{{ label.date }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="timeline-content">
+        <div class="task-list">
+          <div *ngFor="let task of filterTasksByView()" class="task-row">
+            <div class="task-info">
+              <div class="task-name">{{ task.name }}</div>
+              <div class="task-assigned">{{ task.assignedTo }}</div>
+            </div>
+
+            <div class="task-timeline">
+              <!-- Vertical Grid Lines for Year View -->
+              <div *ngFor="let label of getTimelineLabelsForYears()" 
+                   class="year-grid-line"
+                   [ngStyle]="{'left': getYearLinePosition(label) + 'px'}">
+              </div>
+            
+              <!-- Task Bars -->
+              <div class="task-bar" [ngStyle]="{
+                           'left': getTaskPositionForYear(task).left + 'px',
+                           'width': getTaskPositionForYear(task).width + 'px',
+                           'background-color': getColor(task.type),
+                           'color': getTextColor(task.type)
+                         }" 
+                   [ngClass]="{'buffer-task': task.type === 'Buffer'}"
+                   [title]="task.name + ' (' + formatTaskDateRange(task) + ')'">
+                <span class="task-bar-label">{{ task.name }}</span>
+              </div>
+            </div>
+            
+          </div>
+
+          <!-- Empty state -->
+          <div *ngIf="filterTasksByView().length === 0" class="empty-state">
+            No tasks in the current time period
+          </div>
+        </div>
       </div>
     </div>
   </div>
+
+  <!-- Color Legend -->
+  <div class="color-legend">
+    <div class="legend-item">
+      <div class="legend-color" style="background-color: #8a2be2;"></div>
+      <div class="legend-label">To-Do</div>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background-color: #ffcc00;"></div>
+      <div class="legend-label">Buffer</div>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background-color: #32cd32;"></div>
+      <div class="legend-label">Duration</div>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background-color: #ff6385a6;"></div>
+      <div class="legend-label">Starts on weekend</div>
+    </div>
+  </div>
+</div>

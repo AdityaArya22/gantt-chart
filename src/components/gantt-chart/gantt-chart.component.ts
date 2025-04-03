@@ -41,10 +41,12 @@ export class GanttChartComponent implements OnInit {
   yearWidth: number = 200; // Width for each year in Year view
   
   // Display range configuration
-  daysToShow: number = 28; // Days to display in Day view
+  daysToShow: number =15; // Days to display in Day view
   monthsToShow: number = 12; // Months to display in Month view
   yearsToShow: number = 5; // Years to display in Year view
 
+
+  includeWeekends = true; 
   ngOnInit() {
     this.updateViewDates();
     this.getTasks()
@@ -60,6 +62,8 @@ export class GanttChartComponent implements OnInit {
     if (this.viewMode === 'Day') {
       this.viewEndDate.setDate(this.viewStartDate.getDate() + this.daysToShow - 1);
     } else if (this.viewMode === 'Month') {
+      console.log(this.viewStartDate.getMonth());
+      
       this.viewEndDate.setMonth(this.viewStartDate.getMonth() + this.monthsToShow - 1);
     } else if (this.viewMode === 'Year') {
       this.viewEndDate.setFullYear(this.viewStartDate.getFullYear() + this.yearsToShow - 1);
@@ -117,9 +121,10 @@ export class GanttChartComponent implements OnInit {
       this.viewStartDate.setFullYear(this.viewStartDate.getFullYear() + amount);
     }
     
-    this.viewStartDate = new Date(this.viewStartDate); // Create new instance to trigger change detection
+    // this.viewStartDate = new Date(this.viewStartDate); // Create new instance to trigger change detection
     this.updateViewDates();
   }
+  
 
   // Go to today/current period
   goToCurrent() {
@@ -145,36 +150,91 @@ export class GanttChartComponent implements OnInit {
       return `${this.viewStartDate.getFullYear()} - ${this.viewEndDate.getFullYear()}`;
     }
   }
+  updateTimeline() {
+    // Trigger timeline recalculation on toggle
+    if (!this.includeWeekends) {
+      let currentDate = new Date(this.viewStartDate);
+      let visibleDays = 0;
+      let totalDaysChecked = 0;
 
-  getTimelineLabels(): string[] {
-    const labels: string[] = [];
-    
-    if (this.viewMode === 'Day') {
-      const currentDate = new Date(this.viewStartDate);
-      for (let i = 0; i < this.daysToShow; i++) {
-        labels.push(currentDate.toISOString().split('T')[0]);
-        currentDate.setDate(currentDate.getDate() + 1);
+      // Check until daysToShow is reached
+      while (visibleDays < this.daysToShow) {
+          const isWeekend = currentDate.getDay() === 0 || currentDate.getDay() === 6;
+          if (!isWeekend) visibleDays++;
+          currentDate.setDate(currentDate.getDate() + 1);
+          totalDaysChecked++;
       }
-    } else if (this.viewMode === 'Month') {
-      const currentDate = new Date(this.viewStartDate);
-      for (let i = 0; i < this.monthsToShow; i++) {
-        labels.push(currentDate.toISOString().split('T')[0]);
-        currentDate.setMonth(currentDate.getMonth() + 1);
+
+      // Dynamically update daysToShow
+      this.daysToShow = totalDaysChecked;
+  }
+
+  // Recalculate viewEndDate based on adjusted daysToShow
+  this.viewEndDate = new Date(this.viewStartDate);
+  this.viewEndDate.setDate(this.viewStartDate.getDate() + this.daysToShow - 1);
+
+  // Update task positions
+  this.getTimelineLabelsForDays();
+  }
+  isFridayWithoutWeekends(date: string): boolean {
+    const day = new Date(date).getDay();
+    return day === 5 && !this.includeWeekends;
+  }
+  
+  getTimelineLabelsForDays(): { date: string; isSaturday: boolean; isWeekend: boolean }[] {
+    const labels = [];
+    let currentDate = new Date(this.viewStartDate);
+    let addedDays = 0;
+  
+    // Loop until we've added exactly daysToShow days
+    while (addedDays < this.daysToShow) {
+      const dayOfWeek = currentDate.getDay();
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+  
+      // Only add days based on weekend toggle
+      if (this.includeWeekends || !isWeekend) {
+        labels.push({
+          date: currentDate.toISOString().split('T')[0],
+          isSaturday: dayOfWeek === 6,
+          isWeekend: isWeekend
+        });
+        addedDays++; // Increase counter only if the day is added
       }
-    } else if (this.viewMode === 'Year') {
-      const currentDate = new Date(this.viewStartDate);
-      for (let i = 0; i < this.yearsToShow; i++) {
-        labels.push(currentDate.getFullYear().toString());
-        currentDate.setFullYear(currentDate.getFullYear() + 1);
-      }
+  
+      currentDate.setDate(currentDate.getDate() + 1);
     }
-
+  
     return labels;
   }
+  
+  
+  
+  getTimelineLabelsForMonths(): { date: string }[] {
+    const labels = [];
+    let currentDate = new Date(this.viewStartDate);
+    for (let i = 0; i < this.monthsToShow; i++) {
+      labels.push({ date: currentDate.toLocaleDateString('default', { month: 'short', year: 'numeric' }) });
+      currentDate.setMonth(currentDate.getMonth() + 1);
+    }
+    return labels;
+  }
+  
+  getTimelineLabelsForYears(): { date: string }[] {
+    const labels = [];
+    let currentDate = new Date(this.viewStartDate);
+    for (let i = 0; i < this.yearsToShow; i++) {
+      labels.push({ date: currentDate.getFullYear().toString() });
+      currentDate.setFullYear(currentDate.getFullYear() + 1);
+      
+    }
+    console.log(labels);
+    return labels;
+  }
+  
 
   // Helper methods for Day view formatting
   getDayName(dateStr: string): string {
-    const date = new Date(dateStr);
+    const date = new Date(dateStr);     
     return date.toLocaleDateString('default', { weekday: 'short' });
   }
 
@@ -208,10 +268,9 @@ export class GanttChartComponent implements OnInit {
     return today.getFullYear().toString() === year;
   }
 
-  isWeekend(dateStr: string): boolean {
-    const date = new Date(dateStr);
-    const day = date.getDay();
-    return day === 0 || day === 6; // 0 is Sunday, 6 is Saturday
+  isWeekend(date: string): boolean {
+    const day = new Date(date).getDay();
+    return day === 0 || day === 6;
   }
 
   formatTaskDateRange(task: Task): string {
@@ -234,83 +293,135 @@ export class GanttChartComponent implements OnInit {
   }
 
   // Calculate position and width for tasks in all views
-  getTaskPosition(task: Task): { left: number, width: number } {
+  getTaskPositionForDays(task: Task): { left: number, width: number, hidden: boolean } {
     const taskStart = new Date(task.startDate);
     const taskEnd = new Date(task.endDate);
     const viewStart = new Date(this.viewStartDate);
-    
     let left = 0;
     let width = 0;
-    
-    // Calculate the effective start date (max of task start and view start)
-    const effectiveStart = new Date(Math.max(taskStart.getTime(), viewStart.getTime()));
-    
+    let hidden = false;
+
+    // ✅ Step 1: Check if task falls entirely on weekends
+    if (!this.includeWeekends) {
+        let currentDate = new Date(taskStart);
+        let isWeekendTask = true;
+
+        // Check if task is exclusively on weekends
+        while (currentDate <= taskEnd) {
+            if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6) {
+                isWeekendTask = false;
+                break;
+            }
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+
+        // If task is entirely on weekends, hide it
+        if (isWeekendTask) {
+            hidden = true;
+            return { left: 0, width: 0, hidden };
+        }
+    }
+
+    // ✅ Step 2: Calculate position and width
+    let effectiveStart = new Date(Math.max(taskStart.getTime(), viewStart.getTime()));
+
     if (this.viewMode === 'Day') {
-      // Days difference between effective start and view start
-      const startDiff = (effectiveStart.getTime() - viewStart.getTime()) / (1000 * 60 * 60 * 24);
-      left = startDiff * this.dayWidth;
-      
-      // Calculate width based on days within view
-      const viewEnd = new Date(this.viewEndDate);
-      const effectiveEnd = new Date(Math.min(taskEnd.getTime(), viewEnd.getTime()));
-      const daysDuration = (effectiveEnd.getTime() - effectiveStart.getTime()) / (1000 * 60 * 60 * 24);
-      width = Math.max(this.dayWidth / 2, daysDuration * this.dayWidth);
-      
-    } else if (this.viewMode === 'Month') {
-      // Calculate months difference for the left position
-      const startMonths = (effectiveStart.getFullYear() - viewStart.getFullYear()) * 12 
-                          + effectiveStart.getMonth() - viewStart.getMonth();
-      left = startMonths * this.monthWidth;
-      
-      // Calculate width based on months within view
-      const viewEnd = new Date(this.viewEndDate);
-      viewEnd.setMonth(viewEnd.getMonth() + 1, 0); // Last day of the end month
-      
-      const effectiveEnd = new Date(Math.min(taskEnd.getTime(), viewEnd.getTime()));
-      const endMonths = (effectiveEnd.getFullYear() - effectiveStart.getFullYear()) * 12 
-                        + effectiveEnd.getMonth() - effectiveStart.getMonth();
-      
-      // Add fractional month calculation for more accuracy
-      const startFraction = effectiveStart.getDate() / new Date(effectiveStart.getFullYear(), effectiveStart.getMonth() + 1, 0).getDate();
-      const endFraction = effectiveEnd.getDate() / new Date(effectiveEnd.getFullYear(), effectiveEnd.getMonth() + 1, 0).getDate();
-      
-      width = Math.max(this.monthWidth / 3, (endMonths + endFraction - startFraction) * this.monthWidth);
-      
-    } else if (this.viewMode === 'Year') {
-      // Calculate years difference
-      const startYears = effectiveStart.getFullYear() - viewStart.getFullYear();
-      left = startYears * this.yearWidth;
-      
-      // Calculate width based on years within view
-      const viewEnd = new Date(this.viewEndDate);
-      viewEnd.setMonth(11, 31); // Last day of the end year
-      
-      const effectiveEnd = new Date(Math.min(taskEnd.getTime(), viewEnd.getTime()));
-      const endYears = effectiveEnd.getFullYear() - effectiveStart.getFullYear();
-      
-      // Add fractional year calculation
-      const startDayOfYear = (effectiveStart.getTime() - new Date(effectiveStart.getFullYear(), 0, 1).getTime()) / (1000 * 60 * 60 * 24);
-      const endDayOfYear = (effectiveEnd.getTime() - new Date(effectiveEnd.getFullYear(), 0, 1).getTime()) / (1000 * 60 * 60 * 24);
-      
-      const startFraction = startDayOfYear / (isLeapYear(effectiveStart.getFullYear()) ? 366 : 365);
-      const endFraction = endDayOfYear / (isLeapYear(effectiveEnd.getFullYear()) ? 366 : 365);
-      
-      width = Math.max(this.yearWidth / 4, (endYears + endFraction - startFraction) * this.yearWidth);
+        let adjustedStart = new Date(viewStart);
+        let startDiff = 0;
+
+        // ✅ Step 3: Calculate 'left' position considering excluded weekends
+        while (adjustedStart < effectiveStart) {
+            if (this.includeWeekends || (adjustedStart.getDay() !== 0 && adjustedStart.getDay() !== 6)) {
+                startDiff++;
+            }
+            adjustedStart.setDate(adjustedStart.getDate() + 1);
+        }
+
+        left = startDiff * this.dayWidth;
+
+        // ✅ Step 4: Calculate 'width' dynamically based on visibility
+        let duration = 0;
+        let currentDate = new Date(effectiveStart);
+        const viewEnd = new Date(this.viewEndDate);
+        let effectiveEnd = new Date(Math.min(taskEnd.getTime(), viewEnd.getTime()));
+
+        // Recalculate duration based on visibility
+        while (currentDate <= effectiveEnd) {
+            if (this.includeWeekends || (currentDate.getDay() !== 0 && currentDate.getDay() !== 6)) {
+                duration++;
+            }
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+
+        width = Math.max(this.dayWidth / 2, duration * this.dayWidth);
     }
-    
-    // Apply buffer if specified
-    if (task.type === 'Buffer' && task.buffer) {
-      if (this.viewMode === 'Day') {
-        width += task.buffer * this.dayWidth;
-      } else if (this.viewMode === 'Month') {
-        width += (task.buffer / 30) * this.monthWidth; // Approximate
-      } else if (this.viewMode === 'Year') {
-        width += (task.buffer / 365) * this.yearWidth; // Approximate
-      }
-    }
-    
-    return { left, width };
+
+    return { left, width, hidden };
+}
+
+
+getTaskPositionForMonth(task: Task): { left: number, width: number, hidden: boolean } {
+  const taskStart = new Date(task.startDate);
+  const taskEnd = new Date(task.endDate);
+  const viewStart = new Date(this.viewStartDate);
+  const viewEnd = new Date(this.viewEndDate);
+  let left = 0;
+  let width = 0;
+  let hidden = false;
+
+  // Step 1: Check if task is out of view
+  if (taskEnd < viewStart || taskStart > viewEnd) {
+      hidden = true;
+      return { left, width, hidden };
   }
+
+  // Step 2: Calculate position and width for month view
+  const taskStartMonth = taskStart.getMonth() + taskStart.getFullYear() * 12;
+  const taskEndMonth = taskEnd.getMonth() + taskEnd.getFullYear() * 12;
+  const viewStartMonth = viewStart.getMonth() + viewStart.getFullYear() * 12;
+  const viewEndMonth = viewEnd.getMonth() + viewEnd.getFullYear() * 12;
+
+  // Calculate left position
+  left = Math.max(0, (taskStartMonth - viewStartMonth) * this.monthWidth);
+
+  // Calculate width
+  const visibleMonths = Math.min(taskEndMonth, viewEndMonth) - taskStartMonth + 1;
+  width = Math.max(this.monthWidth / 2, visibleMonths * this.monthWidth);
+
+  return { left, width, hidden };
+}
+getTaskPositionForYear(task: Task): { left: number, width: number, hidden: boolean } {
+  const taskStart = new Date(task.startDate);
+  const taskEnd = new Date(task.endDate);
+  const viewStart = new Date(this.viewStartDate);
+  const viewEnd = new Date(this.viewEndDate);
+  let left = 0;
+  let width = 0;
+  let hidden = false;
+
+  // Step 1: Check if task is out of view
+  if (taskEnd < viewStart || taskStart > viewEnd) {
+      hidden = true;
+      return { left, width, hidden };
+  }
+
+  // Step 2: Calculate position and width for year view
+  const taskStartYear = taskStart.getFullYear();
+  const taskEndYear = taskEnd.getFullYear();
+  const viewStartYear = viewStart.getFullYear();
+  const viewEndYear = viewEnd.getFullYear();
+
+  // Calculate left position
+  left = Math.max(0, (taskStartYear - viewStartYear) * this.yearWidth);
+
+  // Calculate width
+  const visibleYears = Math.min(taskEndYear, viewEndYear) - taskStartYear + 1;
+  width = Math.max(this.yearWidth / 2, visibleYears * this.yearWidth);
+
+  return { left, width, hidden };
+}
+
+
 
   getColor(type: string): string {
     switch (type) {
@@ -330,11 +441,43 @@ export class GanttChartComponent implements OnInit {
       default: return '#000000';
     }
   }
-
+ 
+  
   // Go to today
   goToToday() {
     this.viewStartDate = new Date();
   }
+  getTimelineGridLines() {
+    // Light grey line for visual separation
+    return "linear-gradient(to right, lightgrey 1px, transparent 1px)";
+  }
+  
+  getGridLineSize() {
+    if (this.viewMode === 'Day') {
+      return `${this.dayWidth}px`; // One line per day
+    } else if (this.viewMode === 'Month') {
+      return `${this.monthWidth}px`; // One line per month
+    } else if (this.viewMode === 'Year') {
+      return `${this.yearWidth}px`; // One line per year
+    }
+    return '1px'; // Fallback
+  }
+
+
+  getYearLinePosition(label: { date: string }): number {
+    const index = this.getTimelineLabelsForYears().findIndex(l => l.date === label.date);
+    return index * this.yearWidth; // Assuming yearWidth is defined for spacing
+  }
+  getMonthLinePosition(label: { date: string }): number {
+    const index = this.getTimelineLabelsForMonths().findIndex(l => l.date === label.date);
+    return index * this.monthWidth; // Assuming monthWidth is defined for spacing
+  }
+  isLastColumn(task: Task): boolean {
+    const taskEnd = new Date(task.endDate);
+    const viewEnd = new Date(this.viewEndDate);
+    return taskEnd.getTime() >= viewEnd.getTime();
+  }
+  
 }
 
 // Helper function for leap year calculation
