@@ -3,6 +3,7 @@ import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 export interface Task {
+  id:null|number,
   name: string;
   assignedTo: string;
   type: 'To-Do' | 'Buffer' | 'Duration';
@@ -23,6 +24,7 @@ type ViewMode = 'Day' | 'Month' | 'Year';
 export class GanttChartComponent implements OnInit {
   tasks: Task[] = [];
   newTask: Task = {
+    id:Date.now(),
     name: '',
     assignedTo: '',
     type: 'To-Do',
@@ -42,11 +44,13 @@ export class GanttChartComponent implements OnInit {
   
   // Display range configuration
   daysToShow: number =15; // Days to display in Day view
-  monthsToShow: number = 12; // Months to display in Month view
+  monthsToShow: number = 6; // Months to display in Month view
   yearsToShow: number = 5; // Years to display in Year view
-
-
+  taskBeingEdited: Task | null = null;
+ isEditMode:boolean = false
+  isModalOpen = false;
   includeWeekends = true; 
+  selectedTask: Task | null = null;
   ngOnInit() {
     this.updateViewDates();
     this.getTasks()
@@ -55,32 +59,52 @@ export class GanttChartComponent implements OnInit {
    let item = localStorage.getItem("chart_item");
    item ? this.tasks = JSON.parse(item) : []
   }
-  updateViewDates() {
-    // Set view end date based on view mode
-    this.viewEndDate = new Date(this.viewStartDate);
-    
+  
+  
+  updateViewDates(): void {
+    const totalDaysToShow = 15;
+    const viewStart = new Date(this.viewStartDate);
+    this.viewEndDate = new Date(viewStart);
+  
     if (this.viewMode === 'Day') {
-      this.viewEndDate.setDate(this.viewStartDate.getDate() + this.daysToShow - 1);
+      if (this.includeWeekends) {
+        this.viewEndDate.setDate(viewStart.getDate() + totalDaysToShow - 1);
+      } else {
+        let daysAdded = 0;
+        while (daysAdded < totalDaysToShow - 1) {
+          this.viewEndDate.setDate(this.viewEndDate.getDate() + 1);
+          const day = this.viewEndDate.getDay();
+          if (day !== 0 && day !== 6) {
+            daysAdded++;
+          }
+        }
+      }
     } else if (this.viewMode === 'Month') {
-      console.log(this.viewStartDate.getMonth());
-      
-      this.viewEndDate.setMonth(this.viewStartDate.getMonth() + this.monthsToShow - 1);
+      this.viewEndDate.setMonth(viewStart.getMonth() + 5); // Show 6 months
     } else if (this.viewMode === 'Year') {
-      this.viewEndDate.setFullYear(this.viewStartDate.getFullYear() + this.yearsToShow - 1);
+      this.viewEndDate.setFullYear(viewStart.getFullYear() + 4); // Show 5 years
     }
   }
+  
 
   addTask() {
     // Validate dates
     if (new Date(this.newTask.startDate) > new Date(this.newTask.endDate)) {
-      alert('End date must be after start date');
-      return;
+        alert('End date must be after start date');
+        return;
     }
+
+    // Assign a unique ID before pushing
+    const taskWithId = { ...this.newTask, id: Date.now() };
     
-    this.tasks.push({ ...this.newTask });
-    localStorage.setItem("chart_item",JSON.stringify(this.tasks))
-    this.newTask = { name: '', assignedTo: '', type: 'To-Do', startDate: '', endDate: '', buffer: 0 };
-  }
+    this.tasks.push(taskWithId);
+    localStorage.setItem("chart_item", JSON.stringify(this.tasks));
+
+    // Reset the form for the next task
+    this.newTask = { id: null, name: '', assignedTo: '', type: 'To-Do', startDate: '', endDate: '', buffer: 0 };
+
+    this.closeModal();
+}
 
   // Set default date values for the form
   setDefaultDates() {
@@ -106,6 +130,7 @@ export class GanttChartComponent implements OnInit {
     if (this.viewMode === 'Year') {
       this.viewStartDate.setMonth(0);
       this.viewStartDate.setDate(1);
+      console.log(this.viewMode);
     }
     
     this.updateViewDates();
@@ -115,16 +140,18 @@ export class GanttChartComponent implements OnInit {
   navigateDate(amount: number) {
     if (this.viewMode === 'Day') {
       this.viewStartDate.setDate(this.viewStartDate.getDate() + amount);
-    } else if (this.viewMode === 'Month') {
+
+    }else if (this.viewMode === 'Month') {
       this.viewStartDate.setMonth(this.viewStartDate.getMonth() + amount);
-    } else if (this.viewMode === 'Year') {
+    }
+     else if (this.viewMode === 'Year') {
       this.viewStartDate.setFullYear(this.viewStartDate.getFullYear() + amount);
     }
     
     // this.viewStartDate = new Date(this.viewStartDate); // Create new instance to trigger change detection
     this.updateViewDates();
   }
-  
+ 
 
   // Go to today/current period
   goToCurrent() {
@@ -142,14 +169,18 @@ export class GanttChartComponent implements OnInit {
 
   // Format the current date range for display
   formatDateRange(): string {
+    const start = new Date(this.viewStartDate);
+    const end = new Date(this.viewEndDate);
+  
     if (this.viewMode === 'Day') {
-      return `${this.viewStartDate.toLocaleDateString('default', { month: 'short', day: 'numeric' })} - ${this.viewEndDate.toLocaleDateString('default', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+      return `${start.toLocaleDateString('default', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('default', { month: 'short', day: 'numeric', year: 'numeric' })}`;
     } else if (this.viewMode === 'Month') {
-      return `${this.viewStartDate.toLocaleDateString('default', { month: 'short', year: 'numeric' })} - ${this.viewEndDate.toLocaleDateString('default', { month: 'short', year: 'numeric' })}`;
+      return `${start.toLocaleDateString('default', { month: 'short', year: 'numeric' })} - ${end.toLocaleDateString('default', { month: 'short', year: 'numeric' })}`;
     } else {
-      return `${this.viewStartDate.getFullYear()} - ${this.viewEndDate.getFullYear()}`;
+      return `${start.getFullYear()} - ${end.getFullYear()}`;
     }
   }
+  
   updateTimeline() {
     // Trigger timeline recalculation on toggle
     if (!this.includeWeekends) {
@@ -227,7 +258,6 @@ export class GanttChartComponent implements OnInit {
       currentDate.setFullYear(currentDate.getFullYear() + 1);
       
     }
-    console.log(labels);
     return labels;
   }
   
@@ -300,64 +330,74 @@ export class GanttChartComponent implements OnInit {
     let left = 0;
     let width = 0;
     let hidden = false;
-
-    // ✅ Step 1: Check if task falls entirely on weekends
-    if (!this.includeWeekends) {
-        let currentDate = new Date(taskStart);
-        let isWeekendTask = true;
-
-        // Check if task is exclusively on weekends
-        while (currentDate <= taskEnd) {
-            if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6) {
-                isWeekendTask = false;
-                break;
-            }
-            currentDate.setDate(currentDate.getDate() + 1);
+  
+    // ✅ Step 1: Hide non-buffer tasks that fall entirely on weekends (if weekends not included)
+    if (!this.includeWeekends && task.type !== 'Buffer') {
+      let currentDate = new Date(taskStart);
+      let isWeekendTask = true;
+  
+      while (currentDate <= taskEnd) {
+        const day = currentDate.getDay();
+        if (day !== 0 && day !== 6) {
+          isWeekendTask = false;
+          break;
         }
-
-        // If task is entirely on weekends, hide it
-        if (isWeekendTask) {
-            hidden = true;
-            return { left: 0, width: 0, hidden };
-        }
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+  
+      if (isWeekendTask) {
+        return { left: 0, width: 0, hidden: true };
+      }
     }
-
-    // ✅ Step 2: Calculate position and width
-    let effectiveStart = new Date(Math.max(taskStart.getTime(), viewStart.getTime()));
-
+  
+    // ✅ Step 2: Adjust effective start based on view start
+    const effectiveStart = new Date(Math.max(taskStart.getTime(), viewStart.getTime()));
+  
     if (this.viewMode === 'Day') {
-        let adjustedStart = new Date(viewStart);
-        let startDiff = 0;
-
-        // ✅ Step 3: Calculate 'left' position considering excluded weekends
-        while (adjustedStart < effectiveStart) {
-            if (this.includeWeekends || (adjustedStart.getDay() !== 0 && adjustedStart.getDay() !== 6)) {
-                startDiff++;
-            }
-            adjustedStart.setDate(adjustedStart.getDate() + 1);
+      let adjustedStart = new Date(viewStart);
+      let startDiff = 0;
+  
+      // ✅ Step 3: Calculate left offset, skipping weekends if necessary
+      while (adjustedStart < effectiveStart) {
+        const isWeekend = adjustedStart.getDay() === 0 || adjustedStart.getDay() === 6;
+        if (this.includeWeekends || !isWeekend) {
+          startDiff++;
         }
-
-        left = startDiff * this.dayWidth;
-
-        // ✅ Step 4: Calculate 'width' dynamically based on visibility
-        let duration = 0;
-        let currentDate = new Date(effectiveStart);
-        const viewEnd = new Date(this.viewEndDate);
-        let effectiveEnd = new Date(Math.min(taskEnd.getTime(), viewEnd.getTime()));
-
-        // Recalculate duration based on visibility
-        while (currentDate <= effectiveEnd) {
-            if (this.includeWeekends || (currentDate.getDay() !== 0 && currentDate.getDay() !== 6)) {
-                duration++;
-            }
-            currentDate.setDate(currentDate.getDate() + 1);
+        adjustedStart.setDate(adjustedStart.getDate() + 1);
+      }
+  
+      left = startDiff * this.dayWidth;
+  
+      // ✅ Step 4: Calculate duration including buffer (and weekends for buffer tasks)
+      let effectiveEnd = new Date(Math.min(taskEnd.getTime(), this.viewEndDate.getTime()));
+  
+      // 🌟 Extend effectiveEnd with buffer days if it's a Buffer task
+      if (task.type === 'Buffer' && task.buffer) {
+        const bufferDays = task.buffer;
+        const bufferEnd = new Date(effectiveEnd);
+        bufferEnd.setDate(bufferEnd.getDate() + bufferDays);
+        effectiveEnd = bufferEnd;
+      }
+  
+      // ✅ Step 5: Calculate width considering includeWeekends flag
+      let duration = 0;
+      let currentDate = new Date(effectiveStart);
+  
+      while (currentDate <= effectiveEnd) {
+        const isWeekend = currentDate.getDay() === 0 || currentDate.getDay() === 6;
+        if (this.includeWeekends || !isWeekend) {
+          duration++;
         }
-
-        width = Math.max(this.dayWidth / 2, duration * this.dayWidth);
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+  
+      width = Math.max(this.dayWidth / 2, duration * this.dayWidth);
     }
-
+  
     return { left, width, hidden };
-}
+  }
+  
+
 
 
 getTaskPositionForMonth(task: Task): { left: number, width: number, hidden: boolean } {
@@ -398,24 +438,21 @@ getTaskPositionForYear(task: Task): { left: number, width: number, hidden: boole
   let left = 0;
   let width = 0;
   let hidden = false;
-
-  // Step 1: Check if task is out of view
   if (taskEnd < viewStart || taskStart > viewEnd) {
-      hidden = true;
-      return { left, width, hidden };
+    hidden = true;
+    return { left, width, hidden };
   }
 
-  // Step 2: Calculate position and width for year view
   const taskStartYear = taskStart.getFullYear();
   const taskEndYear = taskEnd.getFullYear();
   const viewStartYear = viewStart.getFullYear();
   const viewEndYear = viewEnd.getFullYear();
 
-  // Calculate left position
-  left = Math.max(0, (taskStartYear - viewStartYear) * this.yearWidth);
+  const effectiveStartYear = Math.max(taskStartYear, viewStartYear);
+  const effectiveEndYear = Math.min(taskEndYear, viewEndYear);
 
-  // Calculate width
-  const visibleYears = Math.min(taskEndYear, viewEndYear) - taskStartYear + 1;
+  left = Math.max(0, (effectiveStartYear - viewStartYear) * this.yearWidth);
+  const visibleYears = effectiveEndYear - effectiveStartYear + 1;
   width = Math.max(this.yearWidth / 2, visibleYears * this.yearWidth);
 
   return { left, width, hidden };
@@ -463,7 +500,64 @@ getTaskPositionForYear(task: Task): { left: number, width: number, hidden: boole
     return '1px'; // Fallback
   }
 
+  openModal() {
+    this.isEditMode = false;  // Set edit mode to false
+    this.newTask = {  // Reset the task to default
+      id: null,
+      name: '',
+      assignedTo: '',
+      type: 'To-Do',
+      startDate: '',
+      endDate: '',
+      buffer: 0
+    };
+    this.isModalOpen = true;
+  }
+  openModalWithTask(task: Task) {
+    this.isEditMode = true;  // Set edit mode to true
+    this.newTask = { ...task };  // Copy the task to newTask for editing
+    this.isModalOpen = true;
+  }
+  saveTask() {
+    if (this.isEditMode) {
+      // If in edit mode, update the existing task
+      const index = this.tasks.findIndex(task => task.id === this.newTask.id);
+      if (index !== -1) {
+        this.tasks[index] = { ...this.newTask };
+      }
+    } else {
+      // If in add mode, add the new task
+      this.newTask.id = Date.now();  // Assign a new ID
+      this.tasks.push({ ...this.newTask });
+    }
 
+    // Save tasks to localStorage or backend
+    localStorage.setItem("chart_item", JSON.stringify(this.tasks));
+    
+    // Close modal after saving
+    this.closeModal();
+  }
+  // openEditModal(task: Task) {
+  //   this.isModalOpen = true;
+  //   this.isEditMode = true;
+  //   this.newTask = { ...task }; // clone the task into newTask
+  // }
+    
+  
+  closeModal() {
+    this.isModalOpen = false;
+    this.newTask = {
+      id: null,
+      name: '',
+      assignedTo: '',
+      type: 'To-Do',
+      startDate: '',
+      endDate: '',
+      buffer: 0
+    };
+  }
+  
+  
   getYearLinePosition(label: { date: string }): number {
     const index = this.getTimelineLabelsForYears().findIndex(l => l.date === label.date);
     return index * this.yearWidth; // Assuming yearWidth is defined for spacing
@@ -476,6 +570,62 @@ getTaskPositionForYear(task: Task): { left: number, width: number, hidden: boole
     const taskEnd = new Date(task.endDate);
     const viewEnd = new Date(this.viewEndDate);
     return taskEnd.getTime() >= viewEnd.getTime();
+  }
+  openTaskModal(task: Task) {
+    this.selectedTask = { ...task };
+  }
+  updateTask(updatedTask: Task) {
+    console.log("🛠 Updating Task:", updatedTask); // Log the task received
+  
+    const index = this.tasks.findIndex(task => task.id === updatedTask.id);
+  
+    if (index !== -1) {
+      console.log("✅ Task found at index:", index);
+  
+      // Ensure buffer value is included if task type is "Buffer"
+      if (updatedTask.type === "Buffer" && updatedTask.buffer === undefined) {
+        console.warn("⚠️ Buffer task missing buffer value. Setting default value (0).");
+        updatedTask.buffer = 0; // Default buffer value if missing
+      }
+  
+      this.tasks[index] = { ...updatedTask }; // Update task in the array
+      console.log("📌 Updated Task List:", this.tasks);
+  
+      localStorage.setItem("chart_item", JSON.stringify(this.tasks)); // Update local storage
+      console.log("💾 Local Storage Updated!");
+    } else {
+      console.warn("⚠️ Task Not Found! Something went wrong.");
+    }
+  
+    this.selectedTask = null; // Close the modal
+    console.log("📌 Modal Closed");
+  }
+  
+  
+  deleteTask() {
+    if (this.newTask.id !== null) {
+      // Remove the task from the tasks array
+      this.tasks = this.tasks.filter(task => task.id !== this.newTask.id);
+      // Update localStorage
+      localStorage.setItem("chart_item", JSON.stringify(this.tasks));
+    }
+    
+    // Close modal after deletion
+    this.closeModal();
+  }
+  openModalWithDate(date: string) {
+    const formattedDate = new Date(date).toISOString().split('T')[0]; // Ensures date format is YYYY-MM-DD
+    this.isModalOpen = true;
+    this.taskBeingEdited = null;
+    this.newTask = {
+      id: Date.now(),
+      name: '',
+      assignedTo: '',
+      type: 'To-Do',
+      startDate: formattedDate,
+      endDate: formattedDate,
+      buffer: 0
+    };
   }
   
 }
