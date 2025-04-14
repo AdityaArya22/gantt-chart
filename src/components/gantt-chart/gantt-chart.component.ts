@@ -44,13 +44,18 @@ export class GanttChartComponent implements OnInit {
   
   // Display range configuration
   daysToShow: number =15; // Days to display in Day view
-  monthsToShow: number = 6; // Months to display in Month view
+  monthsToShow: number = 7; // Months to display in Month view
   yearsToShow: number = 5; // Years to display in Year view
   taskBeingEdited: Task | null = null;
  isEditMode:boolean = false
   isModalOpen = false;
   includeWeekends = true; 
   selectedTask: Task | null = null;
+
+  customStartDate: string = '';
+  customEndDate: string = '';
+  
+
   ngOnInit() {
     this.updateViewDates();
     this.getTasks()
@@ -80,7 +85,7 @@ export class GanttChartComponent implements OnInit {
         }
       }
     } else if (this.viewMode === 'Month') {
-      this.viewEndDate.setMonth(viewStart.getMonth() + 5); // Show 6 months
+      this.viewEndDate.setMonth(viewStart.getMonth() + 6); // Show 6 months
     } else if (this.viewMode === 'Year') {
       this.viewEndDate.setFullYear(viewStart.getFullYear() + 4); // Show 5 years
     }
@@ -240,11 +245,11 @@ export class GanttChartComponent implements OnInit {
   
   
   
-  getTimelineLabelsForMonths(): { date: string }[] {
-    const labels = [];
+  getTimelineLabelsForMonths(): { date: Date }[] {
+    const labels: { date: Date }[] = [];
     let currentDate = new Date(this.viewStartDate);
     for (let i = 0; i < this.monthsToShow; i++) {
-      labels.push({ date: currentDate.toLocaleDateString('default', { month: 'short', year: 'numeric' }) });
+      labels.push({ date: new Date(currentDate) }); // ⬅️ actual Date object
       currentDate.setMonth(currentDate.getMonth() + 1);
     }
     return labels;
@@ -273,10 +278,10 @@ export class GanttChartComponent implements OnInit {
     return date.toLocaleDateString('default', { month: 'short', day: 'numeric' });
   }
 
-  formatMonthDate(dateStr: string): string {
-    const date = new Date(dateStr);
+  formatMonthDate(date: Date): string {
     return date.toLocaleDateString('default', { month: 'short', year: 'numeric' });
   }
+  
 
   isToday(dateStr: string): boolean {
     const today = new Date();
@@ -286,12 +291,14 @@ export class GanttChartComponent implements OnInit {
            date.getFullYear() === today.getFullYear();
   }
 
-  isCurrentMonth(dateStr: string): boolean {
+  isCurrentMonth(date: Date): boolean {
     const today = new Date();
-    const date = new Date(dateStr);
-    return date.getMonth() === today.getMonth() && 
-           date.getFullYear() === today.getFullYear();
+    return (
+      date.getMonth() === today.getMonth() &&
+      date.getFullYear() === today.getFullYear()
+    );
   }
+  
 
   isCurrentYear(year: string): boolean {
     const today = new Date();
@@ -400,36 +407,36 @@ export class GanttChartComponent implements OnInit {
 
 
 
-getTaskPositionForMonth(task: Task): { left: number, width: number, hidden: boolean } {
-  const taskStart = new Date(task.startDate);
-  const taskEnd = new Date(task.endDate);
-  const viewStart = new Date(this.viewStartDate);
-  const viewEnd = new Date(this.viewEndDate);
-  let left = 0;
-  let width = 0;
-  let hidden = false;
-
-  // Step 1: Check if task is out of view
-  if (taskEnd < viewStart || taskStart > viewEnd) {
+  getTaskPositionForMonth(task: Task): { left: number, width: number, hidden: boolean } {
+    const taskStart = new Date(task.startDate);
+    const taskEnd = new Date(task.endDate);
+    const viewStart = new Date(this.viewStartDate);
+    const viewEnd = new Date(this.viewEndDate);
+  
+    let left = 0;
+    let width = 0;
+    let hidden = false;
+  
+    if (taskEnd < viewStart || taskStart > viewEnd) {
       hidden = true;
       return { left, width, hidden };
+    }
+  
+    const taskStartMonth = taskStart.getMonth() + taskStart.getFullYear() * 12;
+    const taskEndMonth = taskEnd.getMonth() + taskEnd.getFullYear() * 12;
+    const viewStartMonth = viewStart.getMonth() + viewStart.getFullYear() * 12;
+    const viewEndMonth = viewEnd.getMonth() + viewEnd.getFullYear() * 12;
+  
+    const effectiveStart = Math.max(taskStartMonth, viewStartMonth);
+    const effectiveEnd = Math.min(taskEndMonth, viewEndMonth);
+  
+    left = (effectiveStart - viewStartMonth) * this.monthWidth;
+    const visibleMonths = effectiveEnd - effectiveStart + 1;
+    width = Math.max(this.monthWidth / 2, visibleMonths * this.monthWidth);
+  
+    return { left, width, hidden };
   }
-
-  // Step 2: Calculate position and width for month view
-  const taskStartMonth = taskStart.getMonth() + taskStart.getFullYear() * 12;
-  const taskEndMonth = taskEnd.getMonth() + taskEnd.getFullYear() * 12;
-  const viewStartMonth = viewStart.getMonth() + viewStart.getFullYear() * 12;
-  const viewEndMonth = viewEnd.getMonth() + viewEnd.getFullYear() * 12;
-
-  // Calculate left position
-  left = Math.max(0, (taskStartMonth - viewStartMonth) * this.monthWidth);
-
-  // Calculate width
-  const visibleMonths = Math.min(taskEndMonth, viewEndMonth) - taskStartMonth + 1;
-  width = Math.max(this.monthWidth / 2, visibleMonths * this.monthWidth);
-
-  return { left, width, hidden };
-}
+  
 getTaskPositionForYear(task: Task): { left: number, width: number, hidden: boolean } {
   const taskStart = new Date(task.startDate);
   const taskEnd = new Date(task.endDate);
@@ -562,10 +569,15 @@ getTaskPositionForYear(task: Task): { left: number, width: number, hidden: boole
     const index = this.getTimelineLabelsForYears().findIndex(l => l.date === label.date);
     return index * this.yearWidth; // Assuming yearWidth is defined for spacing
   }
-  getMonthLinePosition(label: { date: string }): number {
-    const index = this.getTimelineLabelsForMonths().findIndex(l => l.date === label.date);
-    return index * this.monthWidth; // Assuming monthWidth is defined for spacing
+  getMonthLinePosition(label: { date: Date }): number {
+    const index = this.getTimelineLabelsForMonths().findIndex(l =>
+      l.date.getFullYear() === label.date.getFullYear() &&
+      l.date.getMonth() === label.date.getMonth()
+    );
+    return index * this.monthWidth;
   }
+  
+  
   isLastColumn(task: Task): boolean {
     const taskEnd = new Date(task.endDate);
     const viewEnd = new Date(this.viewEndDate);
@@ -627,6 +639,66 @@ getTaskPositionForYear(task: Task): { left: number, width: number, hidden: boole
       buffer: 0
     };
   }
+  applyCustomRange() {
+    if (this.customStartDate && this.customEndDate) {
+      const start = new Date(this.customStartDate);
+      const end = new Date(this.customEndDate);
+  
+      if (start > end) {
+        alert('Start date must be before end date.');
+        return;
+      }
+  
+      this.viewStartDate = new Date(start);
+      this.viewEndDate = new Date(end);
+  
+      if (this.viewMode === 'Day') {
+        // 🟢 Recalculate visible days considering weekend toggle
+        let count = 0;
+        let current = new Date(start);
+        while (current <= end) {
+          const isWeekend = current.getDay() === 0 || current.getDay() === 6;
+          if (this.includeWeekends || !isWeekend) {
+            count++;
+          }
+          current.setDate(current.getDate() + 1);
+        }
+        this.daysToShow = count;
+      }
+  
+      if (this.viewMode === 'Month') {
+        const startMonth = start.getMonth() + start.getFullYear() * 12;
+        const endMonth = end.getMonth() + end.getFullYear() * 12;
+        this.monthsToShow = endMonth - startMonth + 1;
+      }
+  
+      if (this.viewMode === 'Year') {
+        this.yearsToShow = end.getFullYear() - start.getFullYear() + 1;
+      }
+    }
+  }
+  resetToDefaultView() {
+    // Reset the custom dates
+    this.customStartDate = '';
+    this.customEndDate = '';
+    
+    // Reset to today's date as the start of the view
+    this.viewStartDate = new Date();
+    this.viewEndDate = new Date();
+    
+    // Update the view based on the current view mode
+    if (this.viewMode === 'Day') {
+      this.daysToShow = 15;  // Show 15 days
+    } else if (this.viewMode === 'Month') {
+      this.monthsToShow = 8; // Show 3 months
+    } else if (this.viewMode === 'Year') {
+      this.yearsToShow = 5; // Show 5 years
+    }
+    
+    this.updateViewDates();
+  }
+  
+    
   
 }
 

@@ -1,7 +1,8 @@
 <div class="gantt-container">
   <div class="gantt-header">
     <h2>Project Gantt Chart</h2>
-
+   
+    
     <div class="view-controls" >
       @if(viewMode === 'Day'){
         <div class="view-navigation">
@@ -39,13 +40,13 @@
         </div>
       }@else {
         <div class="view-navigation">
-          <button class="btn nav-btn" (click)="navigateDate(-4)">
+          <button class="btn nav-btn" (click)="navigateDate(-3)">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="#FF5733" viewBox="0 0 24 24">
               <path d="M6 9l6 6 6-6" stroke="#FF5733" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
           </button>
           <span class="current-range">{{ formatDateRange() }}</span>
-          <button class="btn nav-btn" (click)="navigateDate(4)">
+          <button class="btn nav-btn" (click)="navigateDate(3)">
             <!-- FF5733 -->
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="#32CD32" viewBox="0 0 24 24">
               <path d="M18 15l-6-6-6 6" stroke="#32CD32" stroke-width="2" stroke-linecap="round"
@@ -68,7 +69,14 @@
       </label>
     </div>
   </div>
-
+  <div class="custom-range-picker">
+    <label for="customStart">From:</label>
+    <input type="date" id="customStart" [(ngModel)]="customStartDate" name="customStart" (change)="applyCustomRange()" />
+  
+    <label for="customEnd">To:</label>
+    <input type="date" id="customEnd" [(ngModel)]="customEndDate" name="customEnd" (change)="applyCustomRange()" />
+    <button class="reset-btn" type="button" (click)="resetToDefaultView()">Reset</button>
+  </div>
   <!-- Task Form -->
   <!-- Add Task Button -->
   <button class="floating-add-btn" (click)="openModal()">+</button>
@@ -217,7 +225,7 @@
             [ngClass]="{'current-month': isCurrentMonth(label.date)}">
             <div class="month-name">{{ formatMonthDate(label.date) }}</div>
           </div>
-        </div>
+        </div>  
       </div>
 
       <div class="timeline-content">
